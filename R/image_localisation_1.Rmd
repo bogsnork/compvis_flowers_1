@@ -32,6 +32,7 @@ library(magrittr)
 #define image directories 
 img_dir <- "G:/@ModAn/ImgRecSelfAssess/training_data_raw/anon_pics"
 annot_coco_file <- "G:/@ModAn/ImgRecSelfAssess/training_data_processed/export-coco-2019-03-05T14_31_52.619981.json"
+annot_csv_file <- "G:/@ModAn/ImgRecSelfAssess/training_data_processed/export-2019-03-05T17_20_33.839Z.csv"
 ```
 
 
@@ -113,6 +114,24 @@ imageinfo <- imageinfo %>%
 
 imageinfo
 ```
+
+
+```{r}
+#get image name
+annot_csv <- read.csv(annot_csv_file) %>% 
+  select(ID, External.ID)
+
+imageinfo <- imageinfo %>%
+  inner_join(annot_csv, by = c("id" = "ID")) %>% 
+  rename(file_name = External.ID,
+         url = file_name) 
+
+
+imageinfo
+
+```
+
+
 
 Got this far
 #############################
