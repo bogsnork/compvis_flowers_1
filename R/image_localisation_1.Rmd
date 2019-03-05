@@ -31,131 +31,9 @@ library(magrittr)
 ```{r}
 #define image directories 
 img_dir <- "G:/@ModAn/ImgRecSelfAssess/training_data_raw/anon_pics"
-annot_file <- "G:/@ModAn/ImgRecSelfAssess/training_data_processed/export-2019-03-04T09_30_59.776Z.json"
 annot_coco_file <- "G:/@ModAn/ImgRecSelfAssess/training_data_processed/export-coco-2019-03-05T14_31_52.619981.json"
-annot_csv <- "G:/@ModAn/ImgRecSelfAssess/training_data_processed/export-2019-02-13T12_03_36.744Z.csv"
 ```
 
-Importing image attributes from csv and json
-```{r}
-#import and tidy csv file
-annotations <- read.csv(annot_csv)
-
-annotations <- annotations %>% 
-  select(ID, External.ID, Label, Created.By, Dataset.Name) %>% 
-  filter(Label != "Skip") %>%  #exclude skipped images
-  mutate(Label = as.character(Label)) %>% #convert Label to character vector
-  mutate(Label = map(.$Label, fromJSON)) %>% 
-  droplevels()
-annotations
-```
-
-```{r}
-#process json component
-
-temp <- annotations$Label[12][[1]]
-unlist(temp)
-
-#jsonedit(temp)
-#map(temp, "object")
-map(temp[[1]], unlist)
-unlist(temp[[1]], recursive = F)
-```
-
-###Importing image attributes from json coco
-```{r}
-#Image attributes - JSON
-
-#image annotations
-annotations <- fromJSON(file = annot_coco_file)
-#str(annotations[150], max.level = 2)
-#head(annotations[150])
-#jsonedit(annotations)
-```
-
-
-
-
-###Importing image attributes from json only
-```{r}
-#Image attributes - JSON
-
-#image annotations
-annotations <- fromJSON(file = annot_file)
-#str(annotations[150], max.level = 2)
-#head(annotations[150])
-#jsonedit(annotations)
-```
-
-
-```{r}
-#flatten annotations
-
-annotations_df <- annotations %>%
-    set_names(map_chr(., "External ID")) %>% 
-    enframe("filename", "annotations")
-annotations_df
-
-
-
-```
-
-Try to flatten a single image record
-
-```{r}
-one_image <- annotations_df$annotations[[180]]
-
-jsonedit(one_image)
-```
-
-
-```{r}
-labelnames <- map_chr(one_image, c())
-  
-one_image %>%
-    set_names(map(., "Label")) %>% 
-    enframe("Label", "annotations")
-```
-
-
-
-
-```{r}
-one_label <- one_image[["Label"]]
-jsonedit(one_label)
-
-map_df(one_image, magrittr::extract, c("Label"))
-```
-
-
-```{r}
-annotations_df %>% 
-   mutate(
-     info = annotations %>%
-       map(. %>%
-             map_df(magrittr::extract, c("Label", "Created By", "Dataset Name")))
-   ) %>% 
-   select(-annotations) %>% 
-   tidyr::unnest()
-
-```
-
-
-```{r}
-imageinfo <- annotations %>% {
-  tibble(
-    id = map_chr(., "ID"),
-    file_name = map_chr(., "External ID"),
-    dataset_name = map_chr(., "Dataset Name")
-  )
-}
-
-table(imageinfo$dataset_name) 
-```
-
-
-
-########
 
 ```{r}
 #Image attributes
@@ -174,35 +52,15 @@ imageinfo <- annotations$images %>% {
     image_width = map_dbl(., "width")
   )
 }
-
+imageinfo
 ```
 
 
 ```{r}
-
+######I think this bit of code is redundant!!
 #object class ids
-classes <- c(
-  "aeroplane",
-  "bicycle",
-  "bird",
-  "boat",
-  "bottle",
-  "bus",
-  "car",
-  "cat",
-  "chair",
-  "cow",
-  "diningtable",
-  "dog",
-  "horse",
-  "motorbike",
-  "person",
-  "pottedplant",
-  "sheep",
-  "sofa",
-  "train",
-  "tvmonitor"
-)
+classes <- ""
+classes
 ```
 
 
@@ -222,7 +80,7 @@ boxinfo <- boxinfo %>%
   mutate(bbox = unlist(map(.$bbox, function(x) paste(x, collapse = " "))))
 boxinfo <- boxinfo %>% 
   separate(bbox, into = c("x_left", "y_top", "bbox_width", "bbox_height"))
-boxinfo <- boxinfo %>% mutate_all(as.numeric)
+boxinfo <- boxinfo %>% mutate_at(vars(-image_id), as.numeric) 
 
 #For the bounding boxes, the annotation file provides x_left and y_top coordinates, as well as width and height. We will mostly be working with corner coordinates, so we create the missing x_right and y_top.
 
@@ -242,6 +100,7 @@ table(boxinfo$category_id)
 catinfo <- annotations$categories %>%  {
   tibble(id = map_dbl(., "id"), name = map_chr(., "name"))
 }
+catinfo
 ```
 
 
@@ -252,9 +111,11 @@ imageinfo <- imageinfo %>%
   inner_join(boxinfo, by = c("id" = "image_id")) %>%
   inner_join(catinfo, by = c("category_id" = "id"))
 
-#imageinfo
+imageinfo
 ```
 
+Got this far
+#############################
 ```{r}
 # scale all bounding box coordinates according to the actual image size we’ll use when we pass it to our network.
 target_height <- 224
