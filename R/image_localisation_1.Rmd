@@ -32,16 +32,59 @@ library(magrittr)
 #define image directories 
 img_dir <- "G:/@ModAn/ImgRecSelfAssess/training_data_raw/anon_pics"
 annot_file <- "G:/@ModAn/ImgRecSelfAssess/training_data_processed/export-2019-03-04T09_30_59.776Z.json"
+annot_coco_file <- "G:/@ModAn/ImgRecSelfAssess/training_data_processed/export-coco-2019-03-05T14_31_52.619981.json"
+annot_csv <- "G:/@ModAn/ImgRecSelfAssess/training_data_processed/export-2019-02-13T12_03_36.744Z.csv"
+```
+
+Importing image attributes from csv and json
+```{r}
+#import and tidy csv file
+annotations <- read.csv(annot_csv)
+
+annotations <- annotations %>% 
+  select(ID, External.ID, Label, Created.By, Dataset.Name) %>% 
+  filter(Label != "Skip") %>%  #exclude skipped images
+  mutate(Label = as.character(Label)) %>% #convert Label to character vector
+  mutate(Label = map(.$Label, fromJSON)) %>% 
+  droplevels()
+annotations
 ```
 
 ```{r}
-#Image attributes
+#process json component
+
+temp <- annotations$Label[12][[1]]
+unlist(temp)
+
+#jsonedit(temp)
+#map(temp, "object")
+map(temp[[1]], unlist)
+unlist(temp[[1]], recursive = F)
+```
+
+###Importing image attributes from json coco
+```{r}
+#Image attributes - JSON
+
+#image annotations
+annotations <- fromJSON(file = annot_coco_file)
+#str(annotations[150], max.level = 2)
+#head(annotations[150])
+#jsonedit(annotations)
+```
+
+
+
+
+###Importing image attributes from json only
+```{r}
+#Image attributes - JSON
 
 #image annotations
 annotations <- fromJSON(file = annot_file)
-str(annotations[150], max.level = 2)
-annotations[150]
-jsonedit(annotations)
+#str(annotations[150], max.level = 2)
+#head(annotations[150])
+#jsonedit(annotations)
 ```
 
 
@@ -110,6 +153,31 @@ imageinfo <- annotations %>% {
 table(imageinfo$dataset_name) 
 ```
 
+
+
+########
+
+```{r}
+#Image attributes
+
+#image annotations
+annotations <- fromJSON(file = annot_coco_file)
+#str(annotations, max.level = 1)
+
+
+
+imageinfo <- annotations$images %>% {
+  tibble(
+    id = map_chr(., "id"),
+    file_name = map_chr(., "file_name"),
+    image_height = map_dbl(., "height"),
+    image_width = map_dbl(., "width")
+  )
+}
+
+```
+
+
 ```{r}
 
 #object class ids
@@ -144,7 +212,7 @@ classes <- c(
 
 boxinfo <- annotations$annotations %>% {
   tibble(
-    image_id = map_dbl(., "image_id"),
+    image_id = map_chr(., "image_id"),
     category_id = map_dbl(., "category_id"),
     bbox = map(., "bbox")
   )
@@ -163,6 +231,8 @@ boxinfo <- boxinfo %>% mutate_all(as.numeric)
 boxinfo <- boxinfo %>% 
   mutate(y_bottom = y_top + bbox_height - 1, x_right = x_left + bbox_width - 1)
 
+boxinfo
+table(boxinfo$category_id)
 ```
 
 
