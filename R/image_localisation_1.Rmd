@@ -30,7 +30,7 @@ library(magrittr)
 
 ```{r}
 #define image directories 
-img_dir <- "../data/quadrats/images_voc"
+img_dir <- "~/compvis_flowers_1/data/quadrats/images_voc"
 annot_coco_file <- "../data/quadrats/export-coco-2019-03-05T14_31_52.619981.json"
 annot_csv_file <- "../data/quadrats/export-2019-03-05T17_20_33.839Z.csv"
 ```
@@ -159,7 +159,7 @@ Have a look
 ```{r}
 #Let’s take a glance at our data. Picking one of the early entries and displaying the original image together with the object annotation yields
 
-img_data <- imageinfo[184,]
+img_data <- imageinfo[187,]
 img <- image_read(file.path(img_dir, img_data$file_name))
 img <- image_draw(img)
 rect(
@@ -316,7 +316,7 @@ model %>% fit_generator(
   validation_steps = nrow(validation_data) / batch_size,
   callbacks = list(
     callback_model_checkpoint(
-      file.path("../models/class_only", "weights.{epoch:02d}-{val_loss:.2f}.hdf5")
+      file.path("~/compvis_flowers_1/models/class_only", "weights.{epoch:02d}-{val_loss:.2f}.hdf5")
     ),
     callback_early_stopping(patience = 2)
   )
@@ -325,15 +325,18 @@ model %>% fit_generator(
 
 ## Multiple object classification
 
-This time, we multi-hot-encode our data. For every image (as represented by its filename), here we have a vector of length 20 where 0 indicates absence, 1 means presence of the respective object class:
+This time, we multi-hot-encode our data. For every image (as represented by its filename), here we have a vector of length `ncats` where 0 indicates absence, 1 means presence of the respective object class:
 
 
 ```{r}
+#work out how many categories there are: 
+ncats <-  imageinfo %>% select(category_id) %>% pull() %>% max() 
+
 image_cats <- imageinfo %>% 
   select(category_id) %>% #category ids are numbered from 1
   mutate(category_id = category_id - 1) %>%  #this converts it to zero based indexing
   pull() %>%
-  to_categorical(num_classes = 20)
+  to_categorical(num_classes = ncats)
 
 image_cats <- data.frame(image_cats) %>%
   add_column(file_name = imageinfo$file_name, .before = TRUE)
