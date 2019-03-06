@@ -30,9 +30,9 @@ library(magrittr)
 
 ```{r}
 #define image directories 
-img_dir <- "G:/@ModAn/ImgRecSelfAssess/training_data_raw/anon_pics"
-annot_coco_file <- "G:/@ModAn/ImgRecSelfAssess/training_data_processed/export-coco-2019-03-05T14_31_52.619981.json"
-annot_csv_file <- "G:/@ModAn/ImgRecSelfAssess/training_data_processed/export-2019-03-05T17_20_33.839Z.csv"
+img_dir <- "../data/quadrats/images_voc"
+annot_coco_file <- "../data/quadrats/export-coco-2019-03-05T14_31_52.619981.json"
+annot_csv_file <- "../data/quadrats/export-2019-03-05T17_20_33.839Z.csv"
 ```
 
 
@@ -123,14 +123,19 @@ annot_csv <- read.csv(annot_csv_file) %>%
 
 imageinfo <- imageinfo %>%
   inner_join(annot_csv, by = c("id" = "ID")) %>% 
-  rename(file_name = External.ID,
-         url = file_name) 
+  rename(file_name_original = External.ID,
+         url = file_name) %>% 
+  mutate(file_name = paste0(id, str_sub(file_name_original, start = -4)))
 
 
 imageinfo
 
 ```
 
+```{r}
+#export
+#write.csv(imageinfo, "../data/quadrats/imageinfo.csv")
+```
 
 
 Got this far
@@ -154,7 +159,7 @@ Have a look
 ```{r}
 #Let’s take a glance at our data. Picking one of the early entries and displaying the original image together with the object annotation yields
 
-img_data <- imageinfo[4,]
+img_data <- imageinfo[184,]
 img <- image_read(file.path(img_dir, img_data$file_name))
 img <- image_draw(img)
 rect(
