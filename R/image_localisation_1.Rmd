@@ -132,6 +132,21 @@ imageinfo
 
 ```
 
+
+```{r}
+#remove all rows where we don't have an image
+img_files <- list.files(img_dir)
+img_files <- img_files[which(str_sub(img_files, start = -4) != ".xml")]
+length(img_files)
+
+imageinfo <- imageinfo %>% 
+  filter(file_name %in% img_files) %>% 
+  droplevels()
+
+```
+
+
+
 ```{r}
 #export
 #write.csv(imageinfo, "../data/quadrats/imageinfo.csv")
@@ -316,7 +331,7 @@ model %>% fit_generator(
   validation_steps = nrow(validation_data) / batch_size,
   callbacks = list(
     callback_model_checkpoint(
-      file.path("~/compvis_flowers_1/models/class_only", "weights.{epoch:02d}-{val_loss:.2f}.hdf5")
+      file.path("../models/class_only", "weights.{epoch:02d}-{val_loss:.2f}.hdf5")
     ),
     callback_early_stopping(patience = 2)
   )
@@ -353,7 +368,7 @@ validation_data <- image_cats[-train_indices,]
 ```
 
 
-Correspondingly, we modify the generator to return a target of dimensions batch_size * 20, instead of batch_size * 1.
+Correspondingly, we modify the generator to return a target of dimensions batch_size * ncats, instead of batch_size * 1.
 
 
 ```{r}
@@ -375,14 +390,14 @@ classification_generator <-
       }
       x <-
         array(0, dim = c(length(indices), target_height, target_width, 3))
-      y <- array(0, dim = c(length(indices), 20))
+      y <- array(0, dim = c(length(indices), ncats))
       
       for (j in 1:length(indices)) {
         x[j, , , ] <-
           load_and_preprocess_image(data[[indices[j], "file_name"]], 
                                     target_height, target_width)
         y[j, ] <-
-          data[indices[j], 2:21] %>% as.matrix()
+          data[indices[j], 2:(ncats+1)] %>% as.matrix()
       }
       x <- x / 255
       list(x, y)
@@ -429,7 +444,7 @@ model <- keras_model_sequential() %>%
   layer_dense(units = 512, activation = "relu") %>%
   layer_batch_normalization() %>%
   layer_dropout(rate = 0.5) %>%
-  layer_dense(units = 20, activation = "sigmoid")
+  layer_dense(units = ncats, activation = "sigmoid")
 
 model %>% compile(optimizer = "adam",
                   loss = "binary_crossentropy",
