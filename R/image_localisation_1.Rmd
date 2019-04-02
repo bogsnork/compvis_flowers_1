@@ -474,6 +474,138 @@ model %>% fit_generator(
 
 
 ## Single-object localization
+Aim is to predict where the bounding boxes of an object would be. Will be formulated as a regression problem, regression against the 4 points which make up the corners of the bounding box ("a dense output layer with 4 units, each corresponding to a corner coordinate.").
 
+Model will be xception, but this time no 'pooling' to retain spatial info.  
+
+Also note: For Xception, the output resolution will be 7x7. So a priori, we shouldn’t expect high precision on objects much smaller than about 32x32 pixels (assuming the standard input size of 224x224).
+
+
+```{r}
+feature_extractor <- application_xception(
+  include_top = FALSE,
+  input_shape = c(224, 224, 3)
+)
+
+feature_extractor %>% freeze_weights()
+```
+
+Append custom regression module
+```{r}
+model <- keras_model_sequential() %>%
+  feature_extractor %>%
+  layer_flatten() %>%
+  layer_batch_normalization() %>%
+  layer_dropout(rate = 0.25) %>%
+  layer_dense(units = 512, activation = "relu") %>%
+  layer_batch_normalization() %>%
+  layer_dropout(rate = 0.5) %>%
+  layer_dense(units = 4)
+```
+
+
+Create a custom metric to evaluate models: how much to desimate and ground truth overlap.  measured as "Intersection over Union, or Jaccard distance": 
+```{r}
+metric_iou <- function(y_true, y_pred) {
+  
+  # order is [x_left, y_top, x_right, y_bottom]
+  intersection_xmin <- k_maximum(y_true[ ,1], y_pred[ ,1])
+  intersection_ymin <- k_maximum(y_true[ ,2], y_pred[ ,2])
+  intersection_xmax <- k_minimum(y_true[ ,3], y_pred[ ,3])
+  intersection_ymax <- k_minimum(y_true[ ,4], y_pred[ ,4])
+  
+  area_intersection <- (intersection_xmax - intersection_xmin) * 
+                       (intersection_ymax - intersection_ymin)
+  area_y <- (y_true[ ,3] - y_true[ ,1]) * (y_true[ ,4] - y_true[ ,2])
+  area_yhat <- (y_pred[ ,3] - y_pred[ ,1]) * (y_pred[ ,4] - y_pred[ ,2])
+  area_union <- area_y + area_yhat - area_intersection
+  
+  iou <- area_intersection/area_union
+  k_mean(iou)
+  
+}
+```
+
+Compile model
+```{r}
+model %>% compile(
+  optimizer = "adam",
+  loss = "mae", #mean absolute error
+  metrics = list(custom_metric("iou", metric_iou)) #custom metric
+)
+```
+
+Now modify the generator to return bounding box coordinates as targets…
+
+```{r}
+localization_generator <-
+  function(data,
+           target_height,
+           target_width,
+           shuffle,
+           batch_size) {
+    i <- 1
+    function() {
+      if (shuffle) {
+        indices <- sample(1:nrow(data), size = batch_size)
+      } else {
+        if (i + batch_size >= nrow(data))
+          i <<- 1
+        indices <- c(i:min(i + batch_size - 1, nrow(data)))
+        i <<- i + length(indices)
+      }
+      x <-
+        array(0, dim = c(length(indices), target_height, target_width, 3))
+      y <- array(0, dim = c(length(indices), 4))
+      
+      for (j in 1:length(indices)) {
+        x[j, , , ] <-
+          load_and_preprocess_image(data[[indices[j], "file_name"]], 
+                                    target_height, target_width)
+        y[j, ] <-
+          data[indices[j], c("x_left_scaled",
+                             "y_top_scaled",
+                             "x_right_scaled",
+                             "y_bottom_scaled")] %>% as.matrix()
+      }
+      x <- x / 255
+      list(x, y)
+    }
+  }
+
+train_gen <- localization_generator(
+  train_data,
+  target_height = target_height,
+  target_width = target_width,
+  shuffle = TRUE,
+  batch_size = batch_size
+)
+
+valid_gen <- localization_generator(
+  validation_data,
+  target_height = target_height,
+  target_width = target_width,
+  shuffle = FALSE,
+  batch_size = batch_size
+)
+```
+
+train model
+
+```{r}
+model %>% fit_generator(
+  train_gen,
+  epochs = 20,
+  steps_per_epoch = nrow(train_data) / batch_size,
+  validation_data = valid_gen,
+  validation_steps = nrow(validation_data) / batch_size,
+  callbacks = list(
+    callback_model_checkpoint(
+    file.path("../models/loc_only", "weights.{epoch:02d}-{val_loss:.2f}.hdf5")
+    ),
+    callback_early_stopping(patience = 2)
+  )
+)
+```
 
 
