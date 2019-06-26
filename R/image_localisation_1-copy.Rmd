@@ -23,6 +23,7 @@ library(stringr)
 library(repurrrsive)
 library(listviewer)
 library(magrittr)
+library(reticulate)
 ```
 
 
@@ -30,7 +31,7 @@ library(magrittr)
 
 ```{r}
 #define image directories 
-img_dir <- "~/compvis_flowers_1/data/quadrats/images_voc"
+img_dir <- "~/compvis_flowers_2/data/quadrats/images_voc"
 annot_coco_file <- "../data/quadrats/export-coco-2019-03-05T14_31_52.619981.json"
 annot_csv_file <- "../data/quadrats/export-2019-03-05T17_20_33.839Z.csv"
 ```
@@ -229,6 +230,19 @@ feature_extractor <-
     pooling = "avg"
 )
 
+# #If you get the following error: 
+# # Error in py_call_impl(callable, dots$args, dots$keywords) : Exception: URL fetch failure on https://link/to/a/model.h5: None -- unknown url type: https
+# #run this in terminal: 
+# wget  -P ~/.keras/models/ "https://github.com/fchollet/deep-learning-models/releases/download/v0.4/xception_weights_tf_dim_ordering_tf_kernels_notop.h5"
+# #then run this R code: 
+feature_extractor <-
+  application_xception(weights = "/home/nectar/.keras/models/xception_weights_tf_dim_ordering_tf_kernels_notop.h5",
+    include_top = FALSE,
+    input_shape = c(224, 224, 3),
+    pooling = "avg"
+)
+# #see: https://stackoverflow.com/questions/49719377/rkeras-unknown-url-type-https-error-six-urlretrieve-python-code-from-r
+
 feature_extractor %>% freeze_weights()
 
 feature_extractor
@@ -426,6 +440,8 @@ Now, the most interesting change is to the model - even though it’s a change t
 
 See the introduction to loss functions and activations on this blog for a demonstration.
 Instead, we want to decide: For each object class, is it present in the image or not? Thus, instead of softmax we use sigmoid, paired with binary_crossentropy, to obtain an independent verdict on every class.
+
+
 
 ```{r}
 feature_extractor <-
