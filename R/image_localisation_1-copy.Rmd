@@ -9,21 +9,13 @@ based on https://blogs.rstudio.com/tensorflow/posts/2018-11-05-naming-locating-o
 
 ```{r}
 #load packages
+packages.required <- c("keras", "rjson", "magick", "purrr", "tibble", "tidyr", "dplyr", "ggplot2", "stringr", "repurrrsive", "listviewer", "magrittr", "reticulate") 
 
-library(keras)
-library(rjson)
-library(magick) #may need terminal command: sudo apt-get install libmagick++-dev
-library(purrr)
-library(tibble)
-library(tidyr)
-library(dplyr)
-library(ggplot2)
-library(stringr)
+if (length(setdiff(packages.required, rownames(installed.packages()))) > 0) {
+  install.packages(setdiff(packages.required, rownames(installed.packages())))  
+}
 
-library(repurrrsive)
-library(listviewer)
-library(magrittr)
-library(reticulate)
+for(i in 1:length(packages.required)){library(packages.required[i], character.only = TRUE)}
 ```
 
 
@@ -235,12 +227,12 @@ feature_extractor <-
 # #run this in terminal: 
 # wget  -P ~/.keras/models/ "https://github.com/fchollet/deep-learning-models/releases/download/v0.4/xception_weights_tf_dim_ordering_tf_kernels_notop.h5"
 # #then run this R code: 
-feature_extractor <-
-  application_xception(weights = "/home/nectar/.keras/models/xception_weights_tf_dim_ordering_tf_kernels_notop.h5",
-    include_top = FALSE,
-    input_shape = c(224, 224, 3),
-    pooling = "avg"
-)
+# feature_extractor <-
+#   application_xception(weights = "/home/nectar/.keras/models/xception_weights_tf_dim_ordering_tf_kernels_notop.h5",
+#     include_top = FALSE,
+#     input_shape = c(224, 224, 3),
+#     pooling = "avg"
+# )
 # #see: https://stackoverflow.com/questions/49719377/rkeras-unknown-url-type-https-error-six-urlretrieve-python-code-from-r
 
 feature_extractor %>% freeze_weights()
@@ -337,6 +329,8 @@ valid_gen <- classification_generator(
 TRain
 
 ```{r}
+dir.create("../models/class_only")
+
 model %>% fit_generator(
   train_gen,
   epochs = 20,
@@ -350,6 +344,8 @@ model %>% fit_generator(
     callback_early_stopping(patience = 2)
   )
 )
+
+
 ```
 
 ## Multiple object classification
